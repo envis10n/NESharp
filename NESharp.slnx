@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="NESharp/NESharp.csproj" />
+  <Project Path="NESharpLib/NESharpLib.csproj" />
+  <Project Path="NESharpTests/NESharpTests.csproj" />
+</Solution>
