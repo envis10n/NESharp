@@ -11,4 +11,10 @@
     <PackageReference Include="SFML.Graphics" Version="3.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Palettes\2C02G.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
