@@ -30,6 +30,14 @@ namespace NESharpLib
             byte mask = (byte)(0b1 << bit);
             return (byte)((a & mask) >> bit);
         }
+        public static void SetBit(this ref byte a, byte bit, bool state)
+        {
+            byte mask = (byte)(0b1 << bit);
+            if (state)
+                a |= mask;
+            else
+                a = (byte)(a & ~mask);
+        }
         public static bool InRange(this byte a, byte start, byte end)
         {
             return start <= a && a <= end;
@@ -172,6 +180,14 @@ namespace NESharpLib
         public static ushort WrappingDec(this ushort a)
         {
             return a.WrappingSub(1);
+        }
+        public static byte GetUpperByte(this ushort a)
+        {
+            return (byte)((a & 0xff00) >> 8);
+        }
+        public static byte GetLowerByte(this ushort a)
+        {
+            return (byte)(a & 0xff);
         }
         public static ushort SetUpperByte(this ushort a, byte b)
         {

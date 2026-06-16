@@ -1,6 +1,6 @@
 namespace NESharpLib.Modules.CPU;
 
-public record struct Instruction
+public readonly record struct Instruction
 {
     public string Mnemonic { get; init; }
     public int Length { get; init; }
@@ -12,6 +12,43 @@ public record struct Instruction
         Length = length;
         Cycles = cycles;
         Mode = mode;
+    }
+}
+
+public readonly record struct OpArgs
+{
+    private byte[] raw { get; init; }
+    public byte OpCode
+    {
+        get
+        {
+            return raw[0];
+        }
+    }
+    public byte OperandByte
+    {
+        get
+        {
+            return raw[1];
+        }
+    }
+    public ushort OperandShort
+    {
+        get
+        {
+            return raw[1..2].FromLEBytes();
+        }
+    }
+    public string Mnemonic { get; init; }
+    public int Length { get; init; }
+    public int Cycles { get; init; }
+    public AddressingMode Mode { get; init; }
+    public OpArgs(byte[] data, Instruction instruction)
+    {
+        raw = data;
+        Mnemonic = instruction.Mnemonic;
+        Length = instruction.Length;
+        Cycles = instruction.Cycles;
     }
 }
 
@@ -320,16 +357,16 @@ public static class OpCodes
             {0x5a,  new Instruction("*NOP", 1,2, AddressingMode.Implicit)},
             {0x7a,  new Instruction("*NOP", 1,2, AddressingMode.Implicit)},
             {0xda,  new Instruction("*NOP", 1,2, AddressingMode.Implicit)},
-            // {0xea,  new Instruction("NOP", 1,2, AddressingMode.Implicit)},
+            //{0xea,  new Instruction("*NOP", 1,2, AddressingMode.Implicit)},
             {0xfa,  new Instruction("*NOP", 1,2, AddressingMode.Implicit)},
 
-            {0xab,  new Instruction("*LXA", 2, 3, AddressingMode.Immediate)}, //todo: highly unstable and not used
+            //{0xab,  new Instruction("*LXA", 2, 3, AddressingMode.Immediate)}, //todo: highly unstable and not used
             //http://visual6502.org/wiki/index.php?title=6502_Instruction_8B_%28XAA,_ANE%29
-            {0x8b,  new Instruction("*XAA", 2, 3, AddressingMode.Immediate)}, //todo: highly unstable and not used
-            {0xbb,  new Instruction("*LAS", 3, 2, AddressingMode.Absolute_Y)}, //todo: highly unstable and not used
-            {0x9b,  new Instruction("*TAS", 3, 2, AddressingMode.Absolute_Y)}, //todo: highly unstable and not used
-            {0x93,  new Instruction("*AHX", 2, /* guess */ 8, AddressingMode.Indirect_Y)}, //todo: highly unstable and not used
-            {0x9f,  new Instruction("*AHX", 3, /* guess */ 4/* or 5*/, AddressingMode.Absolute_Y)}, //todo: highly unstable and not used
+            //{0x8b,  new Instruction("*XAA", 2, 3, AddressingMode.Immediate)}, //todo: highly unstable and not used
+            //{0xbb,  new Instruction("*LAS", 3, 2, AddressingMode.Absolute_Y)}, //todo: highly unstable and not used
+            //{0x9b,  new Instruction("*TAS", 3, 2, AddressingMode.Absolute_Y)}, //todo: highly unstable and not used
+            //{0x93,  new Instruction("*AHX", 2, /* guess */ 8, AddressingMode.Indirect_Y)}, //todo: highly unstable and not used
+            //{0x9f,  new Instruction("*AHX", 3, /* guess */ 4/* or 5*/, AddressingMode.Absolute_Y)}, //todo: highly unstable and not used
             {0x9e,  new Instruction("*SHX", 3, /* guess */ 4/* or 5*/, AddressingMode.Absolute_Y)}, //todo: highly unstable and not used
             {0x9c,  new Instruction("*SHY", 3, /* guess */ 4/* or 5*/, AddressingMode.Absolute_X)}, //todo: highly unstable and not used
 

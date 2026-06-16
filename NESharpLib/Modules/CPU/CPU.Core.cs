@@ -38,6 +38,7 @@ public partial class CPU
     public CPU(Bus _bus)
     {
         bus = _bus;
+        AssignHandlers();
     }
     private void UpdateZeroNegative(byte value)
     {
@@ -65,9 +66,45 @@ public partial class CPU
     }
     public ushort StackPopShort()
     {
-        byte[] bytes = new byte[2];
-        bytes[0] = StackPop();
-        bytes[1] = StackPop();
+        byte[] bytes = [StackPop(), StackPop()];
         return bytes.FromLEBytes();
+    }
+    public int ExecuteNext()
+    {
+        byte op = bus.ReadByte(ProgramCounter);
+        if (!OpCodes.OpCodesMap.ContainsKey(op))
+            throw new Exception(string.Format("Unknown opcode {0:X2}", op));
+
+        Instruction instruction = OpCodes.OpCodesMap[op];
+
+        if (!InstructionHandlers.ContainsKey(instruction.Mnemonic))
+            throw new Exception(string.Format("Unhandled instruction {0}", instruction.Mnemonic));
+
+        byte[] bytes = new byte[instruction.Length];
+
+        bytes[0] = op;
+
+        for (int i = 1; i < instruction.Length; i++)
+        {
+            bytes[i] = bus.ReadByte(ProgramCounter.WrappingAdd(i));
+        }
+
+        ProgramCounter = ProgramCounter.WrappingInc();
+
+        ushort PCState = ProgramCounter;
+
+        OpArgs args = new OpArgs(bytes, instruction);
+
+        OpResult result = InstructionHandlers[instruction.Mnemonic].Invoke(args);
+        int cycles = instruction.Cycles;
+        if (result.HasFlag(OpResult.CROSS))
+            cycles++;
+        if (result.HasFlag(OpResult.BRANCH))
+            cycles++;
+
+        if (PCState == ProgramCounter)
+            ProgramCounter = ProgramCounter.WrappingAdd(instruction.Length - 1);
+
+        return cycles;
     }
 }

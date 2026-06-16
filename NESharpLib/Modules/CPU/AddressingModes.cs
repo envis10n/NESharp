@@ -39,6 +39,7 @@ public partial class CPU
             case AddressingMode.ZeroPage_Y:
                 return (bus.ReadByte(ProgramCounter).WrappingAdd(Y), false);
             case AddressingMode.Absolute:
+            case AddressingMode.Indirect:
                 return (bus.ReadShort(ProgramCounter), false);
             case AddressingMode.Absolute_X:
                 {
@@ -58,11 +59,6 @@ public partial class CPU
                     ushort addr = ProgramCounter.WrappingInc();
                     ushort naddr = addr.WrappingAdd(offset);
                     return (naddr, PageCross(addr, naddr));
-                }
-            case AddressingMode.Indirect:
-                {
-                    ushort addr = bus.ReadShort(ProgramCounter);
-                    return (addr, false);
                 }
             case AddressingMode.Indirect_X:
                 {
