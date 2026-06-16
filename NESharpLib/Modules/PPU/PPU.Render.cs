@@ -116,14 +116,19 @@ public partial class PPU
     }
     private void ProcessScanline(int scanline)
     {
-        
+        for (int cycle = 0; cycle < 341; cycle++)
+        {
+            ProcessCycle(scanline, cycle);
+        }
     }
     private void ProcessCycle(int scanline, int cycle)
     {
         if (scanline == -1)
         {
             // Pre-render
-            
+            ShiftRegisters();
+            HBlank();
+            shiftCounter = 0;
         }
         else if (scanline.InRange(0, 239))
         {

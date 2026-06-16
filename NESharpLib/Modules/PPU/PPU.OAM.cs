@@ -204,7 +204,11 @@ public partial class PPU
     }
     private void BeginOAMDMA(byte data)
     {
+        oamaddr = 0;
         oamdma = data;
-        is_dma = true;
+        for (int i = 0; i < 256; i++)
+        {
+            oam_primary[i] = bus.ReadByte(oamdma.WrappingAdd(i));
+        }
     }
 }

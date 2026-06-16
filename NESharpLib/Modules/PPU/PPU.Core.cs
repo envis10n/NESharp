@@ -79,6 +79,16 @@ public partial class PPU : Addressable
                         WriteScroll(data);
                         break;
                     }
+                case 0x2006:
+                    {
+                        WritePPUAddr(data);
+                        break;
+                    }
+                case 0x2007:
+                    {
+                        WritePPUData(data);
+                        break;
+                    }
             }
         });
         bus.HandleWrite(0x4014, 0x4014, (addr, data) => BeginOAMDMA(data));
