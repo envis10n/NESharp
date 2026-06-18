@@ -2,7 +2,15 @@
 
 public partial class PPU
 {
-    private void IncrementCoarseX()
+    private void ReloadScrollX()
+    {
+        V = (ushort)((V & 0xfbe0) | (T & 0x041f));
+    }
+    private void ReloadScrollY()
+    {
+        V = (ushort)((V & 0x841fa) | (T & 0x7be0));
+    }
+    private void IncrementX()
     {
         if ((V & 0x001f) == 31)
         {

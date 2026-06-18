@@ -93,6 +93,23 @@ public partial class PPU : Addressable
         });
         bus.HandleWrite(0x4014, 0x4014, (addr, data) => BeginOAMDMA(data));
     }
+    public void Cycles(object? sender, int cycles)
+    {
+        for (int i = 0; i < cycles * 3; i++)
+        {
+            ProcessCycle();
+            cycle++;
+            if (cycle > 341)
+            {
+                scanline += 1;
+                if (scanline == 261)
+                {
+                    scanline = -1;
+                }
+                cycle = 0;
+            }
+        }
+    }
     private ushort MirrorVRAMAddr(ushort addr)
     {
         ushort mirrored_vram = (ushort)(addr & 0b10111111111111);

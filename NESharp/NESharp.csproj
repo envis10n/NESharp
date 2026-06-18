@@ -15,4 +15,13 @@
     <PackageReference Include="SFML.Net" Version="3.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="nestest.nes">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="pacman.nes">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

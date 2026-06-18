@@ -14,7 +14,7 @@ public partial class PPU
         if (address.InRange(0x3f00, 0x3fff))
         {
             ushort addr = address.WrappingSub(0x3f00);
-            palette_control[addr] = data;
+            palette_control[addr % 32] = data;
         }
     }
     private void WriteCtrl(byte data)

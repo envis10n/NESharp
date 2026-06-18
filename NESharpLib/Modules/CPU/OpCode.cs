@@ -36,7 +36,20 @@ public readonly record struct OpArgs
     {
         get
         {
-            return raw[1..2].FromLEBytes();
+            return raw[1..3].FromLEBytes();
+        }
+    }
+    public string Hex
+    {
+        get
+        {
+            string res = "";
+            foreach (byte b in raw)
+            {
+                res += b.ToHexString();
+                res += " ";
+            }
+            return res.Trim();
         }
     }
     public string Mnemonic { get; init; }
@@ -49,6 +62,7 @@ public readonly record struct OpArgs
         Mnemonic = instruction.Mnemonic;
         Length = instruction.Length;
         Cycles = instruction.Cycles;
+        Mode = instruction.Mode;
     }
 }
 

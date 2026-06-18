@@ -8,9 +8,39 @@ public record struct SpriteData
     public byte Y { get => Data[0]; set => Data[0] = value; }
     public byte Tile { get => Data[1]; set => Data[1] = value; }
     public byte Attributes { get => Data[2]; set => Data[2] = value; }
+    public readonly bool Valid { get; init; }
+    public byte Palette
+    {
+        get
+        {
+            return (byte)(Attributes & 0b11); 
+        }
+    }
+    public byte Priority
+    {
+        get
+        {
+            return (byte)((Attributes & 0b100000) >> 5);
+        }
+    }
+    public bool FlipHorizontal
+    {
+        get
+        {
+            return (Attributes & 0b1000000) != 0;
+        }
+    }
+    public bool FlipVertical
+    {
+        get
+        {
+            return (Attributes & 0b10000000) != 0;
+        }
+    }
     public byte X { get => Data[3]; set => Data[3] = value; }
     public SpriteData(byte[] data)
     {
+        Valid = true;
         Data = data;
     }
 }
@@ -168,7 +198,7 @@ public partial class PPU
             }
         }
     }
-    private void SpriteFetch(int scanline, int cycle)
+    private void SpriteFetch()
     {
         // SPRITE FETCH
         if (cycle == 257)
@@ -206,6 +236,7 @@ public partial class PPU
     {
         oamaddr = 0;
         oamdma = data;
+        bus.AddCPUStallCycles(this, 513 + (cycle % 2));
         for (int i = 0; i < 256; i++)
         {
             oam_primary[i] = bus.ReadByte(oamdma.WrappingAdd(i));

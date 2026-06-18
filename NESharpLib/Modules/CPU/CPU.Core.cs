@@ -35,10 +35,28 @@ public partial class CPU
     /// Current CPU status flags
     /// </summary>
     public CPUStatus Status = CPUStatus.Empty;
+    public ExecutionResult? LastExecution;
+    private int stall_cycles = 0;
     public CPU(Bus _bus)
     {
         bus = _bus;
+        bus.OnNMI += (ppu, e) =>
+        {
+            Interrupt(InterruptType.NMI);
+        };
+        bus.OnPPUSync += (ppu, e) =>
+        {
+            ProcessInstructions();
+        };
+        bus.OnAddStallCycles += (ppu, e) =>
+        {
+            stall_cycles += e;
+        };
         AssignHandlers();
+    }
+    public void Reset()
+    {
+        ProgramCounter = bus.ReadShort(0xfffc);
     }
     private void UpdateZeroNegative(byte value)
     {
@@ -69,9 +87,25 @@ public partial class CPU
         byte[] bytes = [StackPop(), StackPop()];
         return bytes.FromLEBytes();
     }
+    public void ProcessInstructions()
+    {
+        int interrupt_cycles = HandleInterrupt();
+        if (interrupt_cycles != 0)
+        {
+            stall_cycles += interrupt_cycles;
+        }
+        if (stall_cycles > 0)
+        {
+            stall_cycles--;
+            return;
+        }
+        int cycles = ExecuteNext();
+        stall_cycles += cycles;
+    }
     public int ExecuteNext()
     {
         byte op = bus.ReadByte(ProgramCounter);
+        ushort start_pc = ProgramCounter;
         if (!OpCodes.OpCodesMap.ContainsKey(op))
             throw new Exception(string.Format("Unknown opcode {0:X2}", op));
 
@@ -94,6 +128,23 @@ public partial class CPU
         ushort PCState = ProgramCounter;
 
         OpArgs args = new OpArgs(bytes, instruction);
+
+        (ushort operand_addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
+
+        ExecutionResult ex = new ExecutionResult
+        {
+            Accumulator = Accumulator,
+            PC = start_pc,
+            X = X,
+            Y = Y,
+            SP = SP,
+            Status = Status,
+            Instruction = args,
+            OperandAddress = operand_addr,
+            PageCross = cross,
+        };
+
+        //Console.WriteLine(TraceInstruction(ex));
 
         OpResult result = InstructionHandlers[instruction.Mnemonic].Invoke(args);
         int cycles = instruction.Cycles;

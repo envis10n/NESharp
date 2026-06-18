@@ -18,7 +18,7 @@ public partial class PPU
         if (address.InRange(0x3f00, 0x3fff))
         {
             ushort addr = address.WrappingSub(0x3f00);
-            return palette_control[addr];
+            return palette_control[addr % 32];
         }
         return 0;
     }

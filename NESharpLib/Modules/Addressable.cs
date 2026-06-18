@@ -54,16 +54,14 @@ namespace NESharpLib
         }
         public ushort ReadShort(ushort address)
         {
-            byte[] bytes = new byte[2];
-            bytes[1] = ReadByte(address);
-            bytes[0] = ReadByte(address.WrappingInc());
+            byte[] bytes = [ReadByte(address), ReadByte(address.WrappingInc())];
             return bytes.FromLEBytes();
         }
         public void WriteShort(ushort address, ushort data)
         {
             byte[] bytes = data.ToLEBytes();
-            WriteByte(address, bytes[1]);
-            WriteByte(address.WrappingInc(), bytes[0]);
+            WriteByte(address, bytes[0]);
+            WriteByte(address.WrappingInc(), bytes[1]);
         }
         public sbyte ReadSByte(ushort address)
         {

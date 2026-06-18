@@ -44,17 +44,21 @@ public class Cartridge
 
         if (flag7.IsNES2()) Format = ROMFormat.NES2;
 
+        ushort prg_rom_start = 0;
+
         if (flag6.HasTrainer())
         {
             Trainer = rom[0..512];
-            rom = rom[512..rom.Length];
+            prg_rom_start += 512;
         }
         else Trainer = [];
+
+        ushort prg_rom_end = (ushort)(prg_rom_start + prg_rom_size);
 
         Mirroring = flag6.GetMirroring();
         Mapper = (byte)(flag7.GetUpperMapperNybble() | flag6.GetLowerMapperNybble());
 
-        PRG = rom[0..prg_rom_size];
-        CHR = rom[prg_rom_size..(prg_rom_size + chr_rom_size)];
+        PRG = rom[prg_rom_start..prg_rom_end];
+        CHR = rom[prg_rom_end..(prg_rom_end + chr_rom_size)];
     }
 }

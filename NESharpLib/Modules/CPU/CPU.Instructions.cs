@@ -8,6 +8,19 @@ public enum OpResult : byte
     BRANCH = 0b10,
 }
 
+public record struct ExecutionResult
+{
+    public ushort PC { get; init; }
+    public byte SP { get; init; }
+    public byte Accumulator { get; init; }
+    public byte X { get; init; }
+    public byte Y { get; init; }
+    public CPUStatus Status { get; init; }
+    public OpArgs Instruction { get; init; }
+    public ushort OperandAddress { get; init; }
+    public bool PageCross { get; init; }
+}
+
 public partial class CPU
 {
     private Dictionary<string, Func<OpArgs, OpResult>> InstructionHandlers = [];
@@ -47,6 +60,7 @@ public partial class CPU
         InstructionHandlers["LDY"] = LDY;
         InstructionHandlers["LSR"] = LSR;
         InstructionHandlers["NOP"] = NOP;
+        InstructionHandlers["*NOP"] = NOP;
         InstructionHandlers["ORA"] = ORA;
         InstructionHandlers["PHA"] = PHA;
         InstructionHandlers["PHP"] = PHP;
@@ -77,6 +91,7 @@ public partial class CPU
         InstructionHandlers["*SAX"] = SAX;
         InstructionHandlers["*DCP"] = DCP;
         InstructionHandlers["*ISC"] = ISC;
+        InstructionHandlers["*ISB"] = ISC;
         InstructionHandlers["*RLA"] = RLA;
         InstructionHandlers["*RRA"] = RRA;
         InstructionHandlers["*SLO"] = SLO;
@@ -84,6 +99,117 @@ public partial class CPU
         InstructionHandlers["*SHX"] = SHX;
         InstructionHandlers["*SHY"] = SHY;
         InstructionHandlers["*SBC"] = USBC;
+    }
+    public string TraceInstruction(ExecutionResult e)
+    {
+        string hexStr = e.Instruction.Hex;
+        string memory = "";
+        ushort addr = e.OperandAddress;
+        switch (e.Instruction.Length)
+        {
+            case 1:
+                {
+                    
+                    switch (e.Instruction.Mode)
+                    {
+                        case AddressingMode.Accumulator:
+                            {
+                                memory = "A ";
+                                break;
+                            }
+                        default:
+                            {
+                                memory = "  ";
+                                break;
+                            }
+                    }
+                    break;
+                }
+            case 2:
+                {
+                    byte operand = e.Instruction.OperandByte;
+                    byte stored = 0;
+                    if (e.Instruction.Mode != AddressingMode.Immediate)
+                        stored = bus.ReadByte(addr);
+                    switch (e.Instruction.Mode)
+                    {
+                        case AddressingMode.Immediate:
+                            {
+                                memory = string.Format($"#${operand:X2}");
+                                break;
+                            }
+                        case AddressingMode.ZeroPage:
+                            {
+                                memory = string.Format($"${operand:X2} = {stored:X2}");
+                                break;
+                            }
+                        case AddressingMode.ZeroPage_X:
+                            {
+                                memory = string.Format($"${operand:X2},X @ {addr:X2} = {stored:X2}");
+                                break;
+                            }
+                        case AddressingMode.ZeroPage_Y:
+                            {
+                                memory = string.Format($"${operand:X2},Y @ {addr:X2} = {stored:X2}");
+                                break;
+                            }
+                        case AddressingMode.Indirect_X:
+                            {
+                                memory = string.Format($"(${operand:X2},X) @ {addr:X2} = 0000 = 00");
+                                break;
+                            }
+                        case AddressingMode.Indirect_Y:
+                            {
+                                memory = string.Format($"(${operand:X2}),Y = {addr.WrappingSub(e.Y):X4} @ {addr:X4} = {stored:X2}");
+                                break;
+                            }
+                        default:
+                            {
+                                memory = string.Format($"${addr:X4}");
+                                break;
+                            }
+                    }
+                    break;
+                }
+            case 3:
+                {
+                    ushort address = e.Instruction.OperandShort;
+                    byte stored = bus.ReadByte(addr);
+                    switch (e.Instruction.Mode)
+                    {
+                        case AddressingMode.Absolute:
+                            {
+                                memory = string.Format($"${address:X4} = {stored:X2}");
+                                break;
+                            }
+                        case AddressingMode.Absolute_X:
+                            {
+                                memory = string.Format($"${address:X4},X @ {addr:X4} = {stored:X2}");
+                                break;
+                            }
+                        case AddressingMode.Absolute_Y:
+                            {
+                                memory = string.Format($"${address:X4},Y @ {addr:X4} = {stored:X2}");
+                                break;
+                            }
+                        default:
+                            {
+                                if (e.Instruction.OpCode == 0x6c)
+                                {
+                                    memory = string.Format($"(${address:X$}) = {addr:X4}");
+                                }
+                                else
+                                {
+                                    memory = string.Format($"${address:X4}");
+                                }
+                                break;
+                            }
+                    }
+                    break;
+                }
+        }
+        string asmString = string.Format($"{e.PC:X4}  {hexStr,-8} {e.Instruction.Mnemonic,4} {memory}");
+        return string.Format($"{asmString,-47} A:{e.Accumulator:X2} X:{e.X:X2} Y:{e.Y:X2} P:{(byte)e.Status:b8} SP:{e.SP:X2} | 02h: {bus.ReadByte(0x0002):X2} 03h: {bus.ReadByte(0x0003):X2}");
     }
     private bool WouldOverflowPos(byte a, byte b, byte res)
     {
@@ -99,7 +225,7 @@ public partial class CPU
     }
     private OpResult ADC(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr).WrappingAdd(GetCarry());
         byte result = Accumulator.WrappingAdd(memory);
         bool carry = result < Accumulator;
@@ -115,7 +241,7 @@ public partial class CPU
     }
     private OpResult AND(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         Accumulator = Accumulator.BitAND(memory);
         UpdateZeroNegative(Accumulator);
@@ -126,7 +252,7 @@ public partial class CPU
     }
     private OpResult ASL(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte value = instruction.Mode == AddressingMode.Accumulator ? Accumulator : bus.ReadByte(addr);
         byte old = value;
         bool carry = value.ShiftOut() == 1;
@@ -146,7 +272,7 @@ public partial class CPU
     }
     private OpResult Branch(bool state)
     {
-        (ushort addr, bool cross) = GetOperandAddress(AddressingMode.Relative);
+        (ushort addr, bool cross) = GetOperandAddress(AddressingMode.Relative, ProgramCounter);
         if (state)
         {
             ProgramCounter = addr;
@@ -194,7 +320,7 @@ public partial class CPU
     }
     private OpResult BIT(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         byte result = Accumulator.BitAND(memory);
         Status.SetZero(result == 0);
@@ -236,7 +362,7 @@ public partial class CPU
     }
     private OpResult CMP(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         Compare(Accumulator, memory);
         OpResult res = OpResult.EMPTY;
@@ -246,21 +372,21 @@ public partial class CPU
     }
     private OpResult CPX(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         Compare(X, memory);
         return OpResult.EMPTY;
     }
     private OpResult CPY(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         Compare(Y, memory);
         return OpResult.EMPTY;
     }
     private OpResult DEC(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         memory = memory.WrappingDec();
         bus.WriteByte(addr, memory);
@@ -281,7 +407,7 @@ public partial class CPU
     }
     private OpResult EOR(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         byte result = Accumulator.BitXOR(memory);
         Accumulator = result;
@@ -293,7 +419,7 @@ public partial class CPU
     }
     private OpResult INC(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         memory = memory.WrappingInc();
         UpdateZeroNegative(memory);
@@ -314,7 +440,7 @@ public partial class CPU
     }
     private OpResult JMP(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         if (instruction.Mode == AddressingMode.Indirect)
         {
             ushort addr2 = addr.WrappingInc();
@@ -332,7 +458,7 @@ public partial class CPU
     }
     private OpResult JSR(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         ushort ret = ProgramCounter.WrappingAdd(2);
         StackPushShort(ret);
         ProgramCounter = addr;
@@ -340,7 +466,7 @@ public partial class CPU
     }
     private OpResult LDA(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         Accumulator = bus.ReadByte(addr);
         UpdateZeroNegative(Accumulator);
         OpResult res = OpResult.EMPTY;
@@ -350,7 +476,7 @@ public partial class CPU
     }
     private OpResult LDX(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         X = bus.ReadByte(addr);
         UpdateZeroNegative(X);
         OpResult res = OpResult.EMPTY;
@@ -360,7 +486,7 @@ public partial class CPU
     }
     private OpResult LDY(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         Y = bus.ReadByte(addr);
         UpdateZeroNegative(Y);
         OpResult res = OpResult.EMPTY;
@@ -370,7 +496,7 @@ public partial class CPU
     }
     private OpResult LSR(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte value = addr == 0 ? Accumulator : bus.ReadByte(addr);
         byte carry = value.GetBit(0);
         value = (byte)(value >> 1);
@@ -388,7 +514,7 @@ public partial class CPU
     }
     private OpResult ORA(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr);
         Accumulator = Accumulator.BitOR(memory);
         UpdateZeroNegative(Accumulator);
@@ -423,7 +549,7 @@ public partial class CPU
     }
     private OpResult ROL(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte value = addr == 0 ? Accumulator : bus.ReadByte(addr);
         byte old_carry = ((byte)Status).GetBit(0);
         byte new_carry = value.GetBit(7);
@@ -437,7 +563,7 @@ public partial class CPU
     }
     private OpResult ROR(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte value = addr == 0 ? Accumulator : bus.ReadByte(addr);
         byte old_carry = ((byte)Status).GetBit(7);
         byte new_carry = value.GetBit(0);
@@ -463,7 +589,7 @@ public partial class CPU
     }
     private OpResult SBC(OpArgs instruction)
     {
-        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(instruction.Mode, ProgramCounter);
         byte memory = bus.ReadByte(addr).WrappingAdd(GetCarry());
         byte result = Accumulator.WrappingAdd(memory);
         bool carry = result < Accumulator;
@@ -494,19 +620,19 @@ public partial class CPU
     }
     private OpResult STA(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         bus.WriteByte(addr, Accumulator);
         return OpResult.EMPTY;
     }
     private OpResult STX(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         bus.WriteByte(addr, X);
         return OpResult.EMPTY;
     }
     private OpResult STY(OpArgs instruction)
     {
-        (ushort addr, _) = GetOperandAddress(instruction.Mode);
+        (ushort addr, _) = GetOperandAddress(instruction.Mode, ProgramCounter);
         bus.WriteByte(addr, Y);
         return OpResult.EMPTY;
     }
@@ -585,7 +711,7 @@ public partial class CPU
     }
     private OpResult SAX(OpArgs args)
     {
-        (ushort addr, bool cross) = GetOperandAddress(args.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(args.Mode, ProgramCounter);
         byte result = Accumulator.BitAND(X);
         bus.WriteByte(addr, result);
         if (cross) return OpResult.CROSS;
@@ -629,7 +755,7 @@ public partial class CPU
     }
     private OpResult USBC(OpArgs args)
     {
-        (ushort addr, bool cross) = GetOperandAddress(args.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(args.Mode, ProgramCounter);
         byte memory = ((byte)0xff).WrappingSub(bus.ReadByte(addr)).WrappingAdd(GetCarry());
         byte result = Accumulator.WrappingAdd(memory);
         bool carry = result < Accumulator;
@@ -645,7 +771,7 @@ public partial class CPU
     }
     private OpResult SHX(OpArgs args)
     {
-        (ushort addr, bool cross) = GetOperandAddress(args.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(args.Mode, ProgramCounter);
         byte high = addr.WrappingInc().GetUpperByte();
         bus.WriteByte(addr, X.BitAND(high));
         if (cross) return OpResult.CROSS;
@@ -653,7 +779,7 @@ public partial class CPU
     }
     private OpResult SHY(OpArgs args)
     {
-        (ushort addr, bool cross) = GetOperandAddress(args.Mode);
+        (ushort addr, bool cross) = GetOperandAddress(args.Mode, ProgramCounter);
         byte high = addr.WrappingInc().GetUpperByte();
         bus.WriteByte(addr, Y.BitAND(high));
         if (cross) return OpResult.CROSS;

@@ -2,7 +2,7 @@
   "profiles": {
     "NESharp": {
       "commandName": "Project",
-      "commandLineArgs": "pacman.nes"
+      "commandLineArgs": "nestest.nes"
     }
   }
 }

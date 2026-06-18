@@ -23,7 +23,7 @@ public partial class CPU
     {
         return (ushort)(addr1 & 0xFF00) != (ushort)(addr2 & 0xFF00);
     }
-    private (ushort, bool) GetOperandAddress(AddressingMode mode)
+    private (ushort, bool) GetOperandAddress(AddressingMode mode, ushort ProgramCounter)
     {
         switch (mode)
         {
